@@ -1,0 +1,146 @@
+#include <Servo.h>
+
+// ===== ULTRASONIC SENSOR: SINGLE SIG PIN =====
+const int sigPin = 2;
+
+// ===== SERVO MOTOR =====
+const int servoPin = 4;
+Servo scanServo;
+
+// ===== L293D MOTOR DRIVER =====
+const int leftEnable = 5;
+const int rightEnable = 6;
+
+const int leftIn1 = 7;
+const int leftIn2 = 8;
+
+const int rightIn1 = 9;
+const int rightIn2 = 10;
+
+const int speedValue = 150;
+
+// ===== MEASURE DISTANCE =====
+float measureDistanceCM() {
+  // Send ultrasonic trigger pulse
+  pinMode(sigPin, OUTPUT);
+  digitalWrite(sigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(sigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(sigPin, LOW);
+
+  // Read echo on the same pin
+  pinMode(sigPin, INPUT);
+
+  unsigned long duration = pulseIn(sigPin, HIGH, 30000UL);
+
+  if (duration == 0) {
+    return -1;
+  }
+
+  return duration * 0.0343 / 2.0;
+}
+
+// ===== STOP BOTH MOTORS =====
+void stopMotors() {
+  analogWrite(leftEnable, 0);
+  analogWrite(rightEnable, 0);
+
+  digitalWrite(leftIn1, LOW);
+  digitalWrite(leftIn2, LOW);
+  digitalWrite(rightIn1, LOW);
+  digitalWrite(rightIn2, LOW);
+}
+
+// ===== MOVE FORWARD =====
+void moveForward() {
+  digitalWrite(leftIn1, HIGH);
+  digitalWrite(leftIn2, LOW);
+
+  digitalWrite(rightIn1, HIGH);
+  digitalWrite(rightIn2, LOW);
+
+  analogWrite(leftEnable, speedValue);
+  analogWrite(rightEnable, speedValue);
+}
+
+// ===== MOVE BACKWARD =====
+void moveBackward() {
+  digitalWrite(leftIn1, LOW);
+  digitalWrite(leftIn2, HIGH);
+
+  digitalWrite(rightIn1, LOW);
+  digitalWrite(rightIn2, HIGH);
+
+  analogWrite(leftEnable, speedValue);
+  analogWrite(rightEnable, speedValue);
+}
+
+// ===== SETUP =====
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(sigPin, OUTPUT);
+  digitalWrite(sigPin, LOW);
+
+  pinMode(leftEnable, OUTPUT);
+  pinMode(rightEnable, OUTPUT);
+
+  pinMode(leftIn1, OUTPUT);
+  pinMode(leftIn2, OUTPUT);
+  pinMode(rightIn1, OUTPUT);
+  pinMode(rightIn2, OUTPUT);
+
+  scanServo.attach(servoPin);
+  scanServo.write(90);
+
+  stopMotors();
+
+  Serial.println("Rover circuit test started");
+}
+
+// ===== MAIN LOOP =====
+void loop() {
+  // Test forward movement
+  Serial.println("Moving forward");
+  moveForward();
+  delay(1000);
+
+  stopMotors();
+  delay(500);
+
+  // Test backward movement
+  Serial.println("Moving backward");
+  moveBackward();
+  delay(1000);
+
+  stopMotors();
+  delay(500);
+
+  // Scan from 0 to 180 degrees
+  for (int angle = 0; angle <= 180; angle += 30) {
+    scanServo.write(angle);
+    delay(300);
+
+    float distance = measureDistanceCM();
+
+    Serial.print("Angle: ");
+    Serial.print(angle);
+    Serial.print(" degrees, Distance: ");
+
+    if (distance < 0) {
+      Serial.println("No echo");
+    } else {
+      Serial.print(distance);
+      Serial.println(" cm");
+    }
+  }
+
+  // Return servo to center
+  scanServo.write(90);
+  delay(500);
+
+  stopMotors();
+  delay(1000);
+}
